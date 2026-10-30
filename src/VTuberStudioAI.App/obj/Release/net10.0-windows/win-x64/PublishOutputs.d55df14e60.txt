@@ -1,2 +1,0 @@
-E:\App\Vtube studio AI\publish\win-x64-selfcontained\VTuberStudioAI.App.pdb
-E:\App\Vtube studio AI\publish\win-x64-selfcontained\VTuberStudioAI.App.exe
