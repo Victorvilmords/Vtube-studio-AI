@@ -1,0 +1,1219 @@
+<Window x:Class="VTuberStudioAI.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:preview="clr-namespace:VTuberStudioAI.App.Preview"
+        mc:Ignorable="d"
+        Title="VTuber Studio AI"
+        Width="1280"
+        Height="800"
+        MinWidth="960"
+        MinHeight="620"
+        Background="{StaticResource AppBackgroundBrush}"
+        Foreground="{StaticResource TextPrimaryBrush}"
+        FontFamily="Segoe UI"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="232" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="#131925" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Top" Margin="18,20,16,20">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="34" Height="34" CornerRadius="10" Background="#173B4B" Margin="0,0,11,0">
+                            <TextBlock Text="V" Foreground="{StaticResource AccentBrush}" FontSize="20"
+                                       FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="VTuber Studio" FontWeight="SemiBold" FontSize="15" />
+                            <TextBlock Text="AI  ·  EARLY ACCESS" FontSize="9"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="17,12,17,18">
+                    <Border Height="1" Background="{StaticResource BorderBrush}" Margin="3,0,3,14" />
+                    <TextBlock Text="FUNDAÇÃO DO ESTÚDIO" FontSize="10" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="9,0,0,9" />
+                    <TextBlock Text="Execução local · Sem envio de dados" FontSize="10"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="9,0,0,0" />
+                </StackPanel>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10,0,10,12">
+                        <TextBlock Text="WORKSPACE" FontSize="10" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="9,0,0,9" />
+                        <ItemsControl ItemsSource="{Binding NavigationItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"
+                                            Tag="{Binding IsSelected}"
+                                            AutomationProperties.Name="{Binding Label}"
+                                            Focusable="True"
+                                            MinHeight="42"
+                                            Margin="0,2"
+                                            Padding="10,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="24" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Icon}"
+                                                       FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="16"
+                                                       HorizontalAlignment="Left"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Label}"
+                                                       TextWrapping="Wrap"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="64" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="30" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="#121823" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                <DockPanel LastChildFill="False" Margin="26,0">
+                    <Border DockPanel.Dock="Right" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="10,6" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="#596579" Margin="0,0,7,0" VerticalAlignment="Center">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="#596579" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasActiveProject}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource AccentBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="{Binding ProjectStatus}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                        </StackPanel>
+                    </Border>
+                </DockPanel>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <Grid Margin="32,26,32,26">
+                    <Grid>
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="home">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="library">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="create">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="furry">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="preview">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" MaxWidth="900" HorizontalAlignment="Left">
+                            <Border Background="#1B3341" BorderBrush="#28576A" BorderThickness="1" CornerRadius="20"
+                                    Padding="10,5" HorizontalAlignment="Left" Margin="0,0,0,18">
+                                <TextBlock Text="{Binding CurrentPage.Badge}" Foreground="{StaticResource AccentBrush}"
+                                           FontSize="10" FontWeight="SemiBold" />
+                            </Border>
+                            <TextBlock Text="{Binding CurrentPage.Title}" FontSize="34" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="{Binding CurrentPage.Description}" FontSize="15" LineHeight="24"
+                                       Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,12,0,0" />
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="12" Margin="0,34,0,0" Padding="28">
+                            <Grid>
+                                <StackPanel MaxWidth="720" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                    <TextBlock Text="{Binding CurrentPage.PanelTitle}" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding CurrentPage.PanelDescription}" Foreground="{StaticResource TextSecondaryBrush}"
+                                               TextWrapping="Wrap" Margin="0,9,0,20" />
+                                    <ItemsControl ItemsSource="{Binding CurrentPage.Details}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Margin="0,7">
+                                                    <TextBlock Text="•" Foreground="{StaticResource AccentBrush}" Margin="0,0,10,0" />
+                                                    <TextBlock Text="{Binding}" Foreground="{StaticResource TextSecondaryBrush}"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="home">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="Seu próximo avatar começa aqui" FontSize="19" FontWeight="SemiBold" />
+                            <TextBlock Text="Crie um personagem do zero ou abra um projeto que já está salvo."
+                                       Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"
+                                       Margin="0,7,0,16" />
+                            <DockPanel LastChildFill="False" Margin="0,0,0,8">
+                                <Button Content="Começar do zero"
+                                        Command="{Binding NavigateToCreateCommand}"
+                                        Background="#173B4B"
+                                        BorderBrush="#28576A"
+                                        Padding="16,10"
+                                        Margin="0,0,9,0" />
+                                <Button Content="Abrir projeto"
+                                        Command="{Binding NavigateToLibraryCommand}"
+                                        Padding="14,10" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding CreateCharacterStatus}"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Margin="0,1,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Margin="0,28,0,0">
+                            <TextBlock Text="Projetos recentes" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
+                            <Border Background="#121823" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="9" Padding="18">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasProjects}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="38" Height="38" CornerRadius="9" Background="#202838" Margin="0,0,14,0">
+                                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="17"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Nenhum projeto recente" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding RecentProjectsStatus}"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <ItemsControl ItemsSource="{Binding RecentProjects}" Margin="0,0,0,0">
+                                <ItemsControl.Style>
+                                    <Style TargetType="ItemsControl">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasProjects}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ItemsControl.Style>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding DataContext.OpenRecentProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Background="{StaticResource SurfaceBrush}"
+                                                BorderBrush="{StaticResource BorderBrush}"
+                                                Margin="0,0,0,6"
+                                                Padding="12,9">
+                                            <DockPanel LastChildFill="True">
+                                                <TextBlock DockPanel.Dock="Right"
+                                                           Text="{Binding ModifiedAt, StringFormat={}{0:dd/MM/yyyy HH:mm}}"
+                                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                                           FontSize="11"
+                                                           VerticalAlignment="Center"
+                                                           Margin="10,0,0,0" />
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                            </DockPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Margin="0,28,0,0">
+                            <TextBlock Text="Acesso rápido" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
+                            <UniformGrid Columns="3">
+                                <Button Command="{Binding NavigateCommand}"
+                                        CommandParameter="studio"
+                                        AutomationProperties.Name="Atalho Meu estúdio"
+                                        Background="{StaticResource SurfaceRaisedBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}"
+                                        Margin="0,0,8,0"
+                                        Padding="14,13">
+                                    <StackPanel>
+                                        <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets"
+                                                   Foreground="{StaticResource AccentBrush}" FontSize="16" />
+                                        <TextBlock Text="Meu estúdio" FontWeight="SemiBold" Margin="0,8,0,0" />
+                                        <TextBlock Text="Área de trabalho" Foreground="{StaticResource TextSecondaryBrush}"
+                                                   FontSize="11" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding NavigateCommand}"
+                                        CommandParameter="create"
+                                        AutomationProperties.Name="Atalho Criar VTuber"
+                                        Background="{StaticResource SurfaceRaisedBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}"
+                                        Margin="0,0,8,0"
+                                        Padding="14,13">
+                                    <StackPanel>
+                                        <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
+                                                   Foreground="{StaticResource AccentBrush}" FontSize="16" />
+                                        <TextBlock Text="Criar VTuber" FontWeight="SemiBold" Margin="0,8,0,0" />
+                                        <TextBlock Text="Importação local de imagens" Foreground="{StaticResource TextSecondaryBrush}"
+                                                   FontSize="11" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding NavigateCommand}"
+                                        CommandParameter="furry"
+                                        AutomationProperties.Name="Atalho Furry Studio"
+                                        Background="{StaticResource SurfaceRaisedBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}"
+                                        Padding="14,13">
+                                    <StackPanel>
+                                        <TextBlock Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets"
+                                                   Foreground="{StaticResource AccentBrush}" FontSize="16" />
+                                        <TextBlock Text="Furry Studio" FontWeight="SemiBold" Margin="0,8,0,0" />
+                                        <TextBlock Text="Configurações de componentes" Foreground="{StaticResource TextSecondaryBrush}"
+                                                   FontSize="11" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Button>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="library">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0">
+                            <Border Background="#1B3341" BorderBrush="#28576A" BorderThickness="1"
+                                    CornerRadius="20" Padding="10,5" HorizontalAlignment="Left" Margin="0,0,0,16">
+                                <TextBlock Text="PROJETOS LOCAIS" Foreground="{StaticResource AccentBrush}"
+                                           FontSize="10" FontWeight="SemiBold" />
+                            </Border>
+                            <TextBlock Text="Biblioteca de projetos" FontSize="30" FontWeight="SemiBold" />
+                            <TextBlock Text="Crie, abra e organize projetos armazenados neste computador."
+                                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"
+                                       TextWrapping="Wrap" Margin="0,8,0,0" />
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="10" Padding="16" Margin="0,24,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Crie um personagem novo" FontWeight="SemiBold" FontSize="15" />
+                                    <TextBlock Text="Comece do zero pelo mesmo fluxo usado na tela inicial."
+                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"
+                                           Margin="0,4,0,0" />
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                    Content="Novo personagem"
+                                    Command="{Binding NavigateToCreateCommand}"
+                                    Background="#173B4B"
+                                    BorderBrush="#28576A"
+                                    Padding="16,10"
+                                    VerticalAlignment="Center"
+                                    Margin="14,0,0,0" />
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Row="2" Margin="0,24,0,0">
+                            <DockPanel Margin="0,0,0,10">
+                                <TextBlock Text="Projetos" FontSize="17" FontWeight="SemiBold" />
+                                <TextBlock DockPanel.Dock="Right"
+                                           Text="{Binding Projects.Count, StringFormat={}{0} projeto(s)}"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="11" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1" CornerRadius="10" Padding="8">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasProjects}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel HorizontalAlignment="Center" Margin="10,26">
+                                    <TextBlock Text="Sua biblioteca está vazia" FontSize="16" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center" />
+                                    <TextBlock Text="Use “Novo personagem” para começar do zero. Seus projetos ficam salvos neste computador."
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               TextWrapping="Wrap" TextAlignment="Center"
+                                               HorizontalAlignment="Center" Margin="0,7,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <ListBox ItemsSource="{Binding Projects}"
+                                     SelectedItem="{Binding SelectedProject, Mode=TwoWay}"
+                                     MaxHeight="270"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.Style>
+                                    <Style TargetType="ListBox">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasProjects}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.Style>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                                        <Setter Property="Padding" Value="12" />
+                                        <Setter Property="Margin" Value="0,2" />
+                                        <Setter Property="Background" Value="#121823" />
+                                        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="ItemBorder" Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                            CornerRadius="7" Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#202838" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#1B3341" />
+                                                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#28576A" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" />
+                                                <TextBlock Text="{Binding ContentType, StringFormat=Conteúdo: {0}}"
+                                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"
+                                                           Margin="0,4,0,0" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                                                <TextBlock Text="{Binding CreatedAt, StringFormat=Criado: {0:dd/MM/yyyy HH:mm}}"
+                                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"
+                                                           HorizontalAlignment="Right" />
+                                                <TextBlock Text="{Binding ModifiedAt, StringFormat=Modificado: {0:dd/MM/yyyy HH:mm}}"
+                                                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"
+                                                           Margin="0,4,0,0" HorizontalAlignment="Right" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="3" Margin="0,18,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding RenameProjectName, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="80"
+                                         MinHeight="38"
+                                         VerticalContentAlignment="Center"
+                                         Background="#121823"
+                                         Foreground="{StaticResource TextPrimaryBrush}"
+                                         BorderBrush="{StaticResource BorderBrush}"
+                                         Padding="10,7"
+                                         IsEnabled="{Binding HasSelectedProject}"
+                                         AutomationProperties.Name="Novo nome do projeto selecionado"
+                                         ToolTip="Selecione um projeto para renomeá-lo." />
+                                <Button Grid.Column="1" Content="Renomear"
+                                        Command="{Binding RenameSelectedProjectCommand}"
+                                        IsEnabled="{Binding HasSelectedProject}"
+                                        Padding="12,9" Margin="8,0,0,0" />
+                            </Grid>
+                            <WrapPanel Margin="0,10,0,0">
+                                <Button Content="Abrir projeto"
+                                        Command="{Binding OpenSelectedProjectCommand}"
+                                        IsEnabled="{Binding HasSelectedProject}"
+                                        Background="#173B4B" BorderBrush="#28576A"
+                                        Padding="14,9" Margin="0,0,8,8" />
+                                <Button Content="Duplicar"
+                                        Command="{Binding DuplicateSelectedProjectCommand}"
+                                        IsEnabled="{Binding HasSelectedProject}"
+                                        Padding="14,9" Margin="0,0,8,8" />
+                                <Button Content="Excluir"
+                                        Command="{Binding DeleteSelectedProjectCommand}"
+                                        IsEnabled="{Binding HasSelectedProject}"
+                                        Background="#3A252B"
+                                        BorderBrush="#62404A"
+                                        Padding="14,9" Margin="0,0,8,8" />
+                            </WrapPanel>
+                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#F28B8B"
+                                       TextWrapping="Wrap" Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding OperationMessage}" Foreground="{StaticResource AccentBrush}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="create">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="Criar VTuber" FontSize="30" FontWeight="SemiBold" />
+                            <TextBlock Text="Crie um avatar vazio ou adicione uma imagem a um personagem salvo."
+                                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"
+                                       TextWrapping="Wrap" Margin="0,6,0,0" />
+                            <TextBlock Text="PNG, JPEG/JPG ou PSD com camadas · PNG/JPEG até 25 MiB, PSD até 500 MiB · Máximo de 12.000 × 12.000 px. WebP não é suportado."
+                                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"
+                                       TextWrapping="Wrap" Margin="0,6,0,0" />
+                            <TextBlock Text="PNG e JPEG não criam camadas. PSD guarda as camadas do arquivo; rigging e animação não são criados."
+                                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="10"
+                                       TextWrapping="Wrap" Margin="0,3,0,0" />
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="10" Padding="14" Margin="0,20,0,14">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Projeto para importar a imagem" FontWeight="SemiBold" FontSize="13" />
+                                    <ComboBox ItemsSource="{Binding Projects}"
+                                              SelectedItem="{Binding ImportTargetProject, Mode=TwoWay}"
+                                              DisplayMemberPath="Name"
+                                              MinHeight="36"
+                                              Margin="0,7,0,0"
+                                              Background="#121823"
+                                              Foreground="{StaticResource TextPrimaryBrush}"
+                                              BorderBrush="{StaticResource BorderBrush}"
+                                              AutomationProperties.Name="Projeto de destino para a imagem" />
+                                    <TextBlock Text="{Binding ImportTargetStatus}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Margin="0,12,0,0">
+                                    <TextBlock Text="Novo avatar vazio" FontWeight="SemiBold" FontSize="13" />
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}"
+                                                 MaxLength="80"
+                                                 MinHeight="36"
+                                                 VerticalContentAlignment="Center"
+                                                 Margin="0,0,8,0"
+                                                 AutomationProperties.Name="Nome do personagem novo"
+                                                 ToolTip="Cria um personagem vazio; nenhum avatar existente será alterado."
+                                                 AutomationProperties.HelpText="Opcional. Informe um nome para começar do zero sem alterar outro personagem." />
+                                        <Button Grid.Column="1"
+                                                Content="Criar do zero"
+                                                Command="{Binding CreateProjectCommand}"
+                                                Padding="13,9"
+                                                Background="#173B4B"
+                                                BorderBrush="#28576A" />
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="2" Background="#0D1119" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="10" MinHeight="340" Padding="14">
+                            <Grid ClipToBounds="True">
+                                <Image Source="{Binding DisplayImage}"
+                                       Stretch="Uniform"
+                                       RenderTransformOrigin="0.5,0.5"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       AutomationProperties.Name="Pré-visualização da imagem importada">
+                                    <Image.RenderTransform>
+                                        <ScaleTransform ScaleX="{Binding ImageZoom}" ScaleY="{Binding ImageZoom}" />
+                                    </Image.RenderTransform>
+                                    <Image.Style>
+                                        <Style TargetType="Image">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasCurrentImage}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasPendingImage}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Image.Style>
+                                </Image>
+                                <Image Source="{Binding PreviewImage}"
+                                       Stretch="Uniform"
+                                       RenderTransformOrigin="0.5,0.5"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       AutomationProperties.Name="Prévia temporária da imagem selecionada">
+                                    <Image.RenderTransform>
+                                        <ScaleTransform ScaleX="{Binding ImageZoom}" ScaleY="{Binding ImageZoom}" />
+                                    </Image.RenderTransform>
+                                </Image>
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding HasCurrentImage}" Value="False" />
+                                                        <Condition Binding="{Binding HasPendingImage}" Value="False" />
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="Nenhuma imagem selecionada" FontSize="17" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center" />
+                                    <TextBlock Text="Selecione um arquivo para conferir a prévia antes de importar."
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               TextWrapping="Wrap" TextAlignment="Center"
+                                               HorizontalAlignment="Center" Margin="0,7,0,0" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Row="3" Margin="0,12,0,0">
+                            <DockPanel LastChildFill="False">
+                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding CurrentImageName}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding CurrentImageDimensions}"
+                                               Foreground="{StaticResource TextSecondaryBrush}" Margin="10,0,0,0" />
+                                </StackPanel>
+                                <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                    <Button Content="Selecionar imagem"
+                                            Command="{Binding ChooseImageFileCommand}"
+                                            Background="#173B4B" BorderBrush="#28576A"
+                                            Padding="13,8" Margin="0,0,7,0" />
+                                    <Button Content="−"
+                                            Command="{Binding ZoomOutCommand}"
+                                            IsEnabled="{Binding HasDisplayImage}"
+                                            AutomationProperties.Name="Diminuir zoom"
+                                            ToolTip="Diminuir zoom"
+                                            Padding="12,8" Margin="0,0,4,0"
+                                            Style="{StaticResource DisplayImageActionButtonStyle}" />
+                                    <Button Content="{Binding ImageZoomLabel}"
+                                            Command="{Binding FitImageCommand}"
+                                            IsEnabled="{Binding HasDisplayImage}"
+                                            ToolTip="Ajustar à área"
+                                            Padding="10,8" Margin="0,0,4,0"
+                                            Style="{StaticResource DisplayImageActionButtonStyle}" />
+                                    <Button Content="+"
+                                            Command="{Binding ZoomInCommand}"
+                                            IsEnabled="{Binding HasDisplayImage}"
+                                            AutomationProperties.Name="Aumentar zoom"
+                                            ToolTip="Aumentar zoom"
+                                            Padding="12,8" Margin="0,0,4,0"
+                                            Style="{StaticResource DisplayImageActionButtonStyle}" />
+                                    <Button Content="Restaurar"
+                                            Command="{Binding RestoreImageFramingCommand}"
+                                            IsEnabled="{Binding HasDisplayImage}"
+                                            ToolTip="Restaurar enquadramento"
+                                            Padding="12,8" Margin="0,0,7,0"
+                                            Style="{StaticResource DisplayImageActionButtonStyle}" />
+                                    <Button Content="Remover referência"
+                                            Command="{Binding RemoveImageReferenceCommand}"
+                                            IsEnabled="{Binding HasCurrentImage}"
+                                            ToolTip="Remove somente a referência; não apaga o arquivo original nem a cópia do projeto."
+                                            Padding="12,8" Margin="0,0,7,0"
+                                            Style="{StaticResource CurrentImageActionButtonStyle}" />
+                                    <Button Content="Cancelar prévia"
+                                            Command="{Binding CancelImagePreviewCommand}"
+                                            IsEnabled="{Binding HasPendingImage}"
+                                            Padding="12,8" Margin="0,0,7,0"
+                                            Style="{StaticResource PendingImageActionButtonStyle}" />
+                                    <Button Content="Confirmar importação"
+                                            Command="{Binding ConfirmImageImportCommand}"
+                                            IsEnabled="{Binding CanConfirmImageImport}"
+                                            Background="#173B4B" BorderBrush="#28576A"
+                                            Padding="13,8"
+                                            Style="{StaticResource PendingImageActionButtonStyle}" />
+                                </WrapPanel>
+                            </DockPanel>
+                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#F28B8B"
+                                       TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <TextBlock Text="{Binding OperationMessage}" Foreground="{StaticResource AccentBrush}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="furry">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="Furry Studio" FontSize="30" FontWeight="SemiBold" />
+                            <TextBlock Text="Monte a estrutura do seu personagem e ajuste cada componente."
+                                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"
+                                       TextWrapping="Wrap" Margin="0,6,0,0" />
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" Margin="0,18,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="Personagem aberto" FontWeight="SemiBold" FontSize="13" />
+                                    <ComboBox ItemsSource="{Binding Projects}"
+                                              SelectedItem="{Binding ImportTargetProject, Mode=TwoWay}"
+                                              DisplayMemberPath="Name"
+                                              MinHeight="36"
+                                              Margin="0,7,0,0"
+                                              Background="#121823"
+                                              Foreground="{StaticResource TextPrimaryBrush}"
+                                              BorderBrush="{StaticResource BorderBrush}"
+                                              AutomationProperties.Name="Personagem aberto no Furry Studio" />
+                                    <TextBlock Text="{Binding FurryProjectStatus}"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        Content="Criar do zero"
+                                        Command="{Binding NavigateToCreateCommand}"
+                                        Padding="13,9"
+                                        Margin="12,22,0,0"
+                                        Background="#173B4B"
+                                        BorderBrush="#28576A" />
+                        </Grid>
+
+                        <Grid Grid.Row="2">
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasActiveProject}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.05*" MinWidth="220" />
+                                <ColumnDefinition Width="1.25*" MinWidth="280" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="10" Padding="14" Margin="0,0,8,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Componentes" FontSize="16" FontWeight="SemiBold" />
+                                    <StackPanel Grid.Row="1" Margin="0,12,0,10">
+                                        <ComboBox ItemsSource="{Binding FurryComponentTypes}"
+                                                  SelectedItem="{Binding SelectedFurryComponentType}"
+                                                  DisplayMemberPath="Label"
+                                                  MinHeight="34"
+                                                  Background="#121823"
+                                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                                  BorderBrush="{StaticResource BorderBrush}"
+                                                  AutomationProperties.Name="Tipo do novo componente" />
+                                        <DockPanel Margin="0,7,0,0">
+                                            <TextBox Text="{Binding NewFurryComponentName, UpdateSourceTrigger=PropertyChanged}"
+                                                     MaxLength="80"
+                                                     MinHeight="34"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="#121823"
+                                                     Foreground="{StaticResource TextPrimaryBrush}"
+                                                     BorderBrush="{StaticResource BorderBrush}"
+                                                     Padding="8,5"
+                                                     AutomationProperties.Name="Nome do novo componente"
+                                                     ToolTip="Opcional para os tipos conhecidos; obrigatório para Personalizado." />
+                                            <Button Content="Adicionar"
+                                                    Command="{Binding AddFurryComponentCommand}"
+                                                    IsEnabled="{Binding HasActiveProject}"
+                                                    Padding="10,7" Margin="7,0,0,0" />
+                                        </DockPanel>
+                                        <TextBlock Text="Configurações iniciais (não são animações)"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   FontSize="10" Margin="0,12,0,5" />
+                                        <WrapPanel>
+                                            <Button Content="Orelhas · neutro"
+                                                    Command="{Binding AddFurryPresetCommand}"
+                                                    CommandParameter="ears-neutral"
+                                                    IsEnabled="{Binding HasActiveProject}"
+                                                    Padding="8,6" Margin="0,0,5,5" />
+                                            <Button Content="Orelhas · alerta"
+                                                    Command="{Binding AddFurryPresetCommand}"
+                                                    CommandParameter="ears-alert"
+                                                    IsEnabled="{Binding HasActiveProject}"
+                                                    Padding="8,6" Margin="0,0,5,5" />
+                                            <Button Content="Cauda · suave"
+                                                    Command="{Binding AddFurryPresetCommand}"
+                                                    CommandParameter="tail-soft"
+                                                    IsEnabled="{Binding HasActiveProject}"
+                                                    Padding="8,6" Margin="0,0,5,5" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                    <Grid Grid.Row="2">
+                                        <ListBox ItemsSource="{Binding FurryComponents}"
+                                                 SelectedItem="{Binding SelectedFurryComponent, Mode=TwoWay}"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 AutomationProperties.Name="Lista de componentes furry">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="Transparent" BorderBrush="Transparent"
+                                                            BorderThickness="0" Padding="6,7" Margin="0,1">
+                                                        <DockPanel>
+                                                            <CheckBox DockPanel.Dock="Right"
+                                                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                                      VerticalAlignment="Center"
+                                                                      Content="Ativo"
+                                                                      AutomationProperties.Name="Alternar estado do componente" />
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                                           TextWrapping="Wrap" />
+                                                                <TextBlock Text="{Binding TypeLabel}"
+                                                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                                                           FontSize="10" Margin="0,3,0,0" />
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                    IsHitTestVisible="False">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasFurryComponents}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <TextBlock Text="Nenhum componente configurado"
+                                                       HorizontalAlignment="Center" FontWeight="SemiBold" />
+                                            <TextBlock Text="Escolha um tipo acima ou adicione uma configuração inicial."
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       TextWrapping="Wrap" TextAlignment="Center"
+                                                       Margin="0,6,0,0" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+
+                            <Border Grid.Column="1" Background="{StaticResource SurfaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="10" Padding="16" Margin="8,0,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Propriedades" FontSize="16" FontWeight="SemiBold" />
+                                    <Grid Grid.Row="1" Margin="0,12,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding SelectedFurryComponentName, UpdateSourceTrigger=PropertyChanged}"
+                                                 MaxLength="80"
+                                                 MinHeight="34"
+                                                 VerticalContentAlignment="Center"
+                                                 Background="#121823"
+                                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                                 BorderBrush="{StaticResource BorderBrush}"
+                                                 Padding="8,5"
+                                                 IsEnabled="{Binding HasSelectedFurryComponent}"
+                                                 AutomationProperties.Name="Nome do componente selecionado" />
+                                        <Button Grid.Column="1" Content="Renomear"
+                                                Command="{Binding RenameFurryComponentCommand}"
+                                                IsEnabled="{Binding HasSelectedFurryComponent}"
+                                                Padding="10,7" Margin="7,0,0,0" />
+                                    </Grid>
+                                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding FurryParameters}"
+                                                      IsEnabled="{Binding HasSelectedFurryComponent}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,9">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="1.2*" />
+                                                            <ColumnDefinition Width="42" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Label}" FontWeight="SemiBold"
+                                                                       TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding RangeLabel}"
+                                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                                       FontSize="10" Margin="0,3,0,0" />
+                                                        </StackPanel>
+                                                        <Slider Grid.Column="1"
+                                                                Minimum="{Binding Minimum}"
+                                                                Maximum="{Binding Maximum}"
+                                                                Value="{Binding NumberValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                VerticalAlignment="Center"
+                                                                Margin="8,0,0,0"
+                                                                AutomationProperties.Name="{Binding Label}">
+                                                            <Slider.Style>
+                                                                <Style TargetType="Slider">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsBoolean}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Slider.Style>
+                                                        </Slider>
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding NumberValue, StringFormat={}{0:0.##}}"
+                                                                   HorizontalAlignment="Right"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{StaticResource TextSecondaryBrush}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsBoolean}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <CheckBox Grid.Column="1"
+                                                                  Grid.ColumnSpan="2"
+                                                                  IsChecked="{Binding BooleanValue, Mode=TwoWay}"
+                                                                  Content="Ativo"
+                                                                  VerticalAlignment="Center"
+                                                                  Margin="8,0,0,0"
+                                                                  AutomationProperties.Name="{Binding Label}">
+                                                            <CheckBox.Style>
+                                                                <Style TargetType="CheckBox">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsBoolean}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </CheckBox.Style>
+                                                        </CheckBox>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                    <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                IsHitTestVisible="False">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding HasSelectedFurryComponent}" Value="False">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <TextBlock Text="Selecione um componente"
+                                                   HorizontalAlignment="Center" FontWeight="SemiBold" />
+                                        <TextBlock Text="Os parâmetros exibidos dependem do tipo escolhido."
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   TextWrapping="Wrap" TextAlignment="Center"
+                                                   Margin="0,6,0,0" />
+                                    </StackPanel>
+                                    <DockPanel Grid.Row="3" Margin="0,10,0,0">
+                                        <CheckBox Content="Componente ativo"
+                                                  IsChecked="{Binding SelectedFurryComponent.IsEnabled, Mode=TwoWay}"
+                                                  IsEnabled="{Binding HasSelectedFurryComponent}"
+                                                  VerticalAlignment="Center" />
+                                        <Button DockPanel.Dock="Right" Content="Remover componente"
+                                                Command="{Binding RemoveFurryComponentCommand}"
+                                                IsEnabled="{Binding HasSelectedFurryComponent}"
+                                                Background="#3A252B" BorderBrush="#62404A"
+                                                Padding="11,8" />
+                                    </DockPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="10" Padding="24">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasActiveProject}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="Seu espaço de criação está pronto"
+                                           FontSize="17" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="Comece do zero pelo botão acima. Seu novo avatar fica separado dos outros projetos."
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap" TextAlignment="Center"
+                                           Margin="0,7,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Grid.Row="3" Margin="0,12,0,0">
+                            <TextBlock Text="{Binding FurryScopeNotice}"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" FontSize="11" Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#F28B8B"
+                                       TextWrapping="Wrap" Margin="0,7,0,0" />
+                            <TextBlock Text="{Binding OperationMessage}" Foreground="{StaticResource AccentBrush}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentPage.Key}" Value="preview">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="Escolha o VTuber" FontSize="22" FontWeight="SemiBold" />
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ComboBox ItemsSource="{Binding Projects}"
+                                          SelectedItem="{Binding ImportTargetProject, Mode=TwoWay}"
+                                          DisplayMemberPath="Name"
+                                          IsEnabled="{Binding HasProjects}"
+                                          MinHeight="36" MaxWidth="420" HorizontalAlignment="Left" MinWidth="280"
+                                          Background="#121823"
+                                          Foreground="{StaticResource TextPrimaryBrush}"
+                                          BorderBrush="{StaticResource BorderBrush}"
+                                          AutomationProperties.Name="VTuber para o preview" />
+                                <WrapPanel Grid.Column="1" HorizontalAlignment="Right">
+                                    <Button Content="{Binding FollowMouseButtonLabel}"
+                                            Command="{Binding ToggleFollowMouseCommand}"
+                                            IsEnabled="{Binding HasCurrentImage}"
+                                            Background="#173B4B" BorderBrush="#28576A"
+                                            Padding="13,8" Margin="12,0,7,0"
+                                            ToolTip="A cabeça e os olhos acompanham o mouse. Dois cliques no preview fazem o mesmo." />
+                                    <Button Content="{Binding MarkEyesButtonLabel}"
+                                            Command="{Binding ToggleMarkEyesCommand}"
+                                            IsEnabled="{Binding HasCurrentImage}"
+                                            Padding="13,8" Margin="0,0,7,0"
+                                            ToolTip="Arraste sobre cada olho da imagem para definir onde o piscar acontece." />
+                                    <Button Content="Limpar olhos"
+                                            Command="{Binding ClearEyesCommand}"
+                                            IsEnabled="{Binding HasEyeRegions}"
+                                            Padding="13,8" />
+                                </WrapPanel>
+                            </Grid>
+                            <TextBlock Text="{Binding PreviewHint}" Foreground="{StaticResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="0,8,0,0" />
+                        </StackPanel>
+
+                        <Border Grid.Row="1" Background="#0D1119" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="10" Height="460" Margin="0,16,0,0" ClipToBounds="True">
+                            <Grid>
+                                <preview:InteractivePreview Source="{Binding CurrentImage}"
+                                                            Eyes="{Binding EyeRegions}"
+                                                            IsMarking="{Binding IsMarkingEyes}"
+                                                            IsFollowing="{Binding FollowMouse, Mode=TwoWay}"
+                                                            MarkCommand="{Binding MarkEyeCommand}"
+                                                            AutomationProperties.Name="Preview interativo do personagem" />
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasCurrentImage}" Value="False">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                               Text="Nenhum VTuber para visualizar" />
+                                    <TextBlock Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"
+                                               TextAlignment="Center" MaxWidth="360" Margin="0,6,0,12"
+                                               Text="Escolha um VTuber acima. Se ainda não tiver um com imagem, importe a arte em Criar VTuber." />
+                                    <Button Content="Ir para Criar VTuber"
+                                            Command="{Binding NavigateToCreateCommand}"
+                                            Background="#173B4B" BorderBrush="#28576A"
+                                            Padding="13,8" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Row="2" Margin="0,12,0,0">
+                            <StackPanel>
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasPsdLayers}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="Camadas do PSD (importadas como PNGs separados no projeto)" FontWeight="SemiBold" Margin="0,0,0,6" />
+                                <ListBox ItemsSource="{Binding PsdLayerLabels}" MaxHeight="150"
+                                         AutomationProperties.Name="Camadas do PSD importado" />
+                            </StackPanel>
+                            <TextBlock Text="Este preview inclina e desloca o quadro da imagem (cabeça) e move o conteúdo da área dos olhos marcados; a pálpebra é uma sobreposição. Não faz rigging nem deformação real."
+                                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" />
+                            <TextBlock Text="{Binding ErrorMessage}" Foreground="#FF8A8A" TextWrapping="Wrap" Margin="0,7,0,0" />
+                            <TextBlock Text="{Binding OperationMessage}" Foreground="{StaticResource AccentBrush}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </ScrollViewer>
+
+            <Border Grid.Row="2" Background="#121823" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+                <DockPanel Margin="18,0">
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="10" />
+                    <TextBlock Text=".NET 10 · WPF" DockPanel.Dock="Right" VerticalAlignment="Center"
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="10" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

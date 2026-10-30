@@ -1,0 +1,8 @@
+bin/
+obj/
+publish/
+build-cache/
+.vs/
+*.user
+*.suo
+TestResults/
