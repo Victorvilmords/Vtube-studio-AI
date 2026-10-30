@@ -11,6 +11,11 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Closed += (_, _) =>
+        {
+            _playWindow?.Close();
+            (DataContext as MainWindowViewModel)?.MotionLab.Dispose();
+        };
         var projectRepository = new ProjectRepository();
         DataContext = new MainWindowViewModel(
             projectRepository,
@@ -29,7 +34,56 @@ public partial class MainWindow : Window
                 "Confirmar remoção do componente",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning,
-                MessageBoxResult.No) == MessageBoxResult.Yes);
+                MessageBoxResult.No) == MessageBoxResult.Yes,
+            openPlayWindow: OpenPlayWindow,
+            themeService: (Application.Current as App)?.Themes,
+            requestRestart: RestartToApplyTheme);
+    }
+
+    private void RestartToApplyTheme()
+    {
+        var answer = MessageBox.Show(
+            this,
+            "O tema foi salvo e será aplicado ao reiniciar. Reiniciar agora? Alterações não salvas serão perdidas.",
+            "Aplicar tema",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question,
+            MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes || Environment.ProcessPath is not { } exe)
+        {
+            return;
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = true });
+            Application.Current.Shutdown();
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            AppLogger.Log(exception, "Falha ao reiniciar para aplicar o tema.");
+            MessageBox.Show(this, "Não foi possível reiniciar. Feche e abra o aplicativo para aplicar o tema.", "Aplicar tema",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private PlayWindow? _playWindow;
+
+    private void OpenPlayWindow()
+    {
+        if (_playWindow is { IsLoaded: true })
+        {
+            _playWindow.Activate();
+            return;
+        }
+
+        _playWindow = new PlayWindow { DataContext = DataContext, Owner = null };
+        _playWindow.Closed += (_, _) =>
+        {
+            _playWindow = null;
+            (DataContext as MainWindowViewModel)?.EndPlay();
+        };
+        _playWindow.Show();
     }
 
     private string? SelectImageFile()

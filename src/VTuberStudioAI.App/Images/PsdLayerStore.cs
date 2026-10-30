@@ -1,10 +1,11 @@
+using System.IO;
 using System.Text.Json;
 using VTuberStudioAI.App.Preview;
 using VTuberStudioAI.App.Projects;
 
 namespace VTuberStudioAI.App.Images;
 
-public sealed record PsdLayerInfo(string Name, int X, int Y, int Width, int Height, bool Visible, string File);
+public sealed record PsdLayerInfo(string Name, int X, int Y, int Width, int Height, bool Visible, string File, byte Opacity = 255);
 
 public sealed record PsdLayerSet(string Image, string Source, IReadOnlyList<PsdLayerInfo> Layers);
 
@@ -39,14 +40,66 @@ public static class PsdLayerStore
         }
     }
 
-    /// <summary>Sugere áreas de olho a partir de camadas visíveis cujo nome indica olho aberto.</summary>
+    /// <summary>Renomeia uma camada (identificada pelo arquivo) e grava no projeto; os PNGs não são tocados.</summary>
+    public static IReadOnlyList<PsdLayerInfo> Rename(
+        IProjectRepository repository, Guid projectId, string imageReference, string file, string newName)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        var error = LayerNaming.Validate(newName);
+        if (error is not null)
+        {
+            throw new ArgumentException(error);
+        }
+
+        var project = repository.Load(projectId);
+        if (!project.Configurations.TryGetValue(ConfigurationKey, out var element))
+        {
+            throw new InvalidDataException("O projeto não tem camadas importadas.");
+        }
+
+        PsdLayerSet? set;
+        try
+        {
+            set = element.Deserialize<PsdLayerSet>();
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException("Os dados das camadas do projeto estão inválidos.", exception);
+        }
+
+        if (set is not { Layers: not null } || !string.Equals(set.Image, imageReference, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException("As camadas não pertencem à imagem atual do projeto.");
+        }
+
+        var layers = set.Layers.ToList();
+        var position = layers.FindIndex(layer => string.Equals(layer.File, file, StringComparison.Ordinal));
+        if (position < 0)
+        {
+            throw new InvalidDataException("A camada não foi encontrada no projeto.");
+        }
+
+        layers[position] = layers[position] with { Name = newName.Trim() };
+        var configurations = new Dictionary<string, JsonElement>(project.Configurations, StringComparer.Ordinal)
+        {
+            [ConfigurationKey] = JsonSerializer.SerializeToElement(set with { Layers = layers })
+        };
+        repository.Save(project with { Configurations = configurations });
+        return layers;
+    }
+
+    /// <summary>Sugere áreas de olho: camadas com papel eyewhite e, sem o molde de nomes, camadas cujo nome indica olho aberto.</summary>
     public static IReadOnlyList<EyeRegion> DetectEyes(PsdDocument psd)
     {
         var eyes = new List<EyeRegion>();
         foreach (var layer in psd.Layers.Where(layer => layer.Visible))
         {
+            var role = LayerNaming.Parse(layer.Name);
             var name = layer.Name.ToLowerInvariant();
-            if (!EyeWords.Any(name.Contains) || ExcludedWords.Any(name.Contains))
+            var isEye = role.IsRecognized
+                ? role.Part == LayerPart.EyeWhite
+                : EyeWords.Any(name.Contains) && !ExcludedWords.Any(name.Contains);
+            if (!isEye)
             {
                 continue;
             }

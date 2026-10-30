@@ -2,12 +2,14 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.IO;
 using System.Windows.Media.Imaging;
 using VTuberStudioAI.App.Projects;
 using VTuberStudioAI.App.Images;
 using VTuberStudioAI.App.Furry;
 using VTuberStudioAI.App.Preview;
+using VTuberStudioAI.App.Themes;
 
 namespace VTuberStudioAI.App.ViewModels;
 
@@ -24,6 +26,24 @@ public sealed class MainWindowViewModel : ObservableObject
     private bool _isMarkingEyes;
     private bool _followMouse;
     private IReadOnlyList<PsdLayerInfo> _psdLayers = [];
+    private Dictionary<string, BitmapSource>? _layerBitmaps;
+    private LayerScene? _previewScene;
+    private string _rigSummary = string.Empty;
+    private IReadOnlyList<EyeRegion> _sceneEyes = [];
+    private RigSettings _previewRig = RigSettings.Default;
+    private readonly Action? _openPlayWindow;
+    private readonly ThemeService? _themeService;
+    private readonly Action? _requestRestart;
+    private readonly string _startupThemeId;
+    private string _themeMessage = string.Empty;
+    private SceneryOptions _scenery = SceneryOptions.Default;
+    private string _sceneryColorText = SceneryOptions.Default.Color;
+    private string _sceneryColorError = string.Empty;
+    private bool _isRigDirty;
+    private bool _loadingRig;
+    private bool _isPoseTesting;
+    private double _testYaw;
+    private double _testPitch;
     private readonly Func<FurryComponent, bool> _confirmRemoveFurryComponent;
     private NavigationPageViewModel _currentPage;
     private ProjectDocument? _selectedProject;
@@ -58,8 +78,42 @@ public sealed class MainWindowViewModel : ObservableObject
         IImageImportService? imageImportService = null,
         Func<string?>? selectImageFile = null,
         FurryStudioService? furryStudioService = null,
-        Func<FurryComponent, bool>? confirmRemoveFurryComponent = null)
+        Func<FurryComponent, bool>? confirmRemoveFurryComponent = null,
+        Action? openPlayWindow = null,
+        MotionLabViewModel? motionLab = null,
+        ThemeService? themeService = null,
+        Action? requestRestart = null)
     {
+        _themeService = themeService;
+        _requestRestart = requestRestart;
+        _startupThemeId = themeService?.Current.Id ?? AppThemes.Default.Id;
+        ThemeOptions = new ObservableCollection<ThemeOptionViewModel>(AppThemes.All.Select(theme => new ThemeOptionViewModel(theme)));
+        RefreshThemeSelection();
+        SelectThemeCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is not string themeId || _themeService is null)
+            {
+                return;
+            }
+
+            var error = _themeService.Select(themeId);
+            RefreshThemeSelection();
+            if (error is not null)
+            {
+                ThemeMessage = error;
+            }
+            else if (_themeService.Current.Id == _startupThemeId)
+            {
+                ThemeMessage = string.Empty;
+            }
+            else
+            {
+                ThemeMessage = "Tema salvo. Ele é aplicado quando o aplicativo for reiniciado.";
+                _requestRestart?.Invoke();
+            }
+        });
+        _openPlayWindow = openPlayWindow;
+        MotionLab = motionLab ?? new MotionLabViewModel(projectRepository);
         _projectRepository = projectRepository ?? throw new ArgumentNullException(nameof(projectRepository));
         _confirmDelete = confirmDelete ?? throw new ArgumentNullException(nameof(confirmDelete));
         _logException = logException ?? AppLogger.Log;
@@ -70,6 +124,21 @@ public sealed class MainWindowViewModel : ObservableObject
         _eyePreviewService = new EyePreviewService(_projectRepository);
         ToggleMarkEyesCommand = new RelayCommand(_ => IsMarkingEyes = !IsMarkingEyes);
         ToggleFollowMouseCommand = new RelayCommand(_ => FollowMouse = !FollowMouse);
+        SaveRigCommand = new RelayCommand(_ => RunProjectOperation(SaveRig));
+        ResetRigCommand = new RelayCommand(_ => ResetRig());
+        SetSceneryColorCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is string hex)
+            {
+                SceneryColorText = hex;
+            }
+        });
+        StartPlayCommand = new RelayCommand(_ => StartPlay());
+        SetSceneryModeCommand = new RelayCommand(parameter =>
+        {
+            SceneryIsTransparent = parameter as string == "transparent";
+            SceneryIsSolid = parameter as string == "solid";
+        });
         MarkEyeCommand = new RelayCommand(parameter =>
         {
             if (parameter is EyeRegion eye)
@@ -85,9 +154,11 @@ public sealed class MainWindowViewModel : ObservableObject
             new NavigationItemViewModel("create", "Criar VTuber", "\uE710"),
             new NavigationItemViewModel("furry", "Furry Studio", "\uE8D2"),
             new NavigationItemViewModel("preview", "Preview", "\uE7B3"),
-            new NavigationItemViewModel("motion", "Laboratório de movimento", "\uE768"),
+            new NavigationItemViewModel("motion", "Laboratório de movimento", "\uE722"),
+            new NavigationItemViewModel("play", "Play", "\uE768"),
             new NavigationItemViewModel("library", "Biblioteca de projetos", "\uE8F1"),
-            new NavigationItemViewModel("integrations", "Integrações", "\uE8D7"),
+            new NavigationItemViewModel("integrations", "Integrações", "\uE8D7", "EM BREVE"),
+            new NavigationItemViewModel("themes", "Temas", "\uE790"),
             new NavigationItemViewModel("settings", "Configurações", "\uE713")
         ];
 
@@ -145,6 +216,25 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     public ObservableCollection<NavigationItemViewModel> NavigationItems { get; }
+    public ObservableCollection<ThemeOptionViewModel> ThemeOptions { get; }
+    public ICommand SelectThemeCommand { get; }
+
+    public string ThemeMessage
+    {
+        get => _themeMessage;
+        private set => SetProperty(ref _themeMessage, value);
+    }
+
+    public string VersionText => $"Early access · v{AppInfo.Version}";
+
+    private void RefreshThemeSelection()
+    {
+        var currentId = _themeService?.Current.Id ?? AppThemes.Default.Id;
+        foreach (var option in ThemeOptions)
+        {
+            option.IsCurrent = option.Id == currentId;
+        }
+    }
 
     public ICommand ToggleMarkEyesCommand { get; }
 
@@ -162,12 +252,377 @@ public sealed class MainWindowViewModel : ObservableObject
             if (SetProperty(ref _eyeRegions, value))
             {
                 OnPropertyChanged(nameof(HasEyeRegions));
+                OnPropertyChanged(nameof(PreviewEyes));
                 OnPropertyChanged(nameof(PreviewHint));
             }
         }
     }
 
     public bool HasEyeRegions => EyeRegions.Count > 0;
+
+    public MotionLabViewModel MotionLab { get; }
+
+    public ObservableCollection<LayerItemViewModel> LayerItems { get; } = [];
+
+    public LayerScene? PreviewScene
+    {
+        get => _previewScene;
+        private set
+        {
+            _sceneEyes = value?.EyeRegions ?? [];
+            if (SetProperty(ref _previewScene, value))
+            {
+                OnPropertyChanged(nameof(HasRiggedEyes));
+                OnPropertyChanged(nameof(HasLayerScene));
+                OnPropertyChanged(nameof(CanMarkEyes));
+                OnPropertyChanged(nameof(PreviewEyes));
+                OnPropertyChanged(nameof(PreviewHint));
+            }
+        }
+    }
+
+    public string RigSummary
+    {
+        get => _rigSummary;
+        private set => SetProperty(ref _rigSummary, value);
+    }
+
+    public bool HasLayerScene => PreviewScene is not null;
+
+    public RigSettings PreviewRig
+    {
+        get => _previewRig;
+        private set => SetProperty(ref _previewRig, value);
+    }
+
+    public bool RigEnabled
+    {
+        get => _previewRig.Enabled;
+        set => UpdateRig(_previewRig with { Enabled = value }, nameof(RigEnabled));
+    }
+
+    public double RigOverall
+    {
+        get => _previewRig.Overall;
+        set => UpdateRig(_previewRig with { Overall = ClampIntensity(value) }, nameof(RigOverall));
+    }
+
+    public double RigFace
+    {
+        get => _previewRig.Face;
+        set => UpdateRig(_previewRig with { Face = ClampIntensity(value) }, nameof(RigFace));
+    }
+
+    public double RigEars
+    {
+        get => _previewRig.Ears;
+        set => UpdateRig(_previewRig with { Ears = ClampIntensity(value) }, nameof(RigEars));
+    }
+
+    public double RigHair
+    {
+        get => _previewRig.Hair;
+        set => UpdateRig(_previewRig with { Hair = ClampIntensity(value) }, nameof(RigHair));
+    }
+
+    public double RigHead
+    {
+        get => _previewRig.Head;
+        set => UpdateRig(_previewRig with { Head = ClampIntensity(value) }, nameof(RigHead));
+    }
+
+    public double RigEyeLook
+    {
+        get => _previewRig.EyeLook;
+        set => UpdateRig(_previewRig with { EyeLook = ClampIntensity(value) }, nameof(RigEyeLook));
+    }
+
+    public double RigBody
+    {
+        get => _previewRig.Body;
+        set => UpdateRig(_previewRig with { Body = ClampIntensity(value) }, nameof(RigBody));
+    }
+
+    public bool RigCloseMouth
+    {
+        get => _previewRig.CloseMouth;
+        set => UpdateRig(_previewRig with { CloseMouth = value }, nameof(RigCloseMouth));
+    }
+
+    public bool IsRigDirty
+    {
+        get => _isRigDirty;
+        private set
+        {
+            if (SetProperty(ref _isRigDirty, value))
+            {
+                OnPropertyChanged(nameof(RigStatus));
+            }
+        }
+    }
+
+    public string RigStatus => IsRigDirty
+        ? "Calibração com alterações não salvas."
+        : "Calibração salva no projeto (ou padrão, se nunca alterada).";
+
+    public bool IsPoseTesting
+    {
+        get => _isPoseTesting;
+        set => SetProperty(ref _isPoseTesting, value && HasLayerScene);
+    }
+
+    public double TestYaw
+    {
+        get => _testYaw;
+        set => SetProperty(ref _testYaw, Math.Clamp(double.IsFinite(value) ? value : 0, -1, 1));
+    }
+
+    public double TestPitch
+    {
+        get => _testPitch;
+        set => SetProperty(ref _testPitch, Math.Clamp(double.IsFinite(value) ? value : 0, -1, 1));
+    }
+
+    public ICommand SaveRigCommand { get; private set; } = null!;
+
+    public ICommand SetSceneryColorCommand { get; private set; } = null!;
+
+    public ICommand StartPlayCommand { get; private set; } = null!;
+
+    public ICommand SetSceneryModeCommand { get; private set; } = null!;
+
+    public IReadOnlyList<SceneryPreset> SceneryPresets => SceneryOptions.Presets;
+
+    public SceneryOptions Scenery => _scenery;
+
+    public Brush PlayBackground => _scenery.ToBrush();
+
+    public bool SceneryIsTransparent
+    {
+        get => _scenery.Mode == SceneryMode.Transparent;
+        set
+        {
+            if (value)
+            {
+                SetScenery(_scenery with { Mode = SceneryMode.Transparent });
+            }
+        }
+    }
+
+    public bool SceneryIsSolid
+    {
+        get => _scenery.Mode == SceneryMode.Solid;
+        set
+        {
+            if (value)
+            {
+                SetScenery(_scenery with { Mode = SceneryMode.Solid });
+            }
+        }
+    }
+
+    public string SceneryColorText
+    {
+        get => _sceneryColorText;
+        set
+        {
+            var text = (value ?? string.Empty).Trim();
+            if (SetProperty(ref _sceneryColorText, text))
+            {
+                if (SceneryOptions.TryParseColor(text, out _))
+                {
+                    SceneryColorError = string.Empty;
+                    SetScenery(_scenery with { Color = text.ToUpperInvariant() });
+                }
+                else
+                {
+                    SceneryColorError = "Use o formato #RRGGBB, por exemplo #00B140.";
+                }
+            }
+        }
+    }
+
+    public string SceneryColorError
+    {
+        get => _sceneryColorError;
+        private set => SetProperty(ref _sceneryColorError, value);
+    }
+
+    public bool CanStartPlay => HasCurrentImage && _openPlayWindow is not null;
+
+    public string PlayStatus => !HasCurrentImage
+        ? "Escolha um VTuber com imagem importada para começar."
+        : "Abre uma janela só com o seu VTuber. Clique com o botão direito e arraste para mover; duplo clique mostra ou esconde o X de fechar.";
+
+    private void SetScenery(SceneryOptions options)
+    {
+        if (options == _scenery)
+        {
+            return;
+        }
+
+        _scenery = options;
+        OnPropertyChanged(nameof(Scenery));
+        OnPropertyChanged(nameof(PlayBackground));
+        OnPropertyChanged(nameof(SceneryIsTransparent));
+        OnPropertyChanged(nameof(SceneryIsSolid));
+        OnPropertyChanged(nameof(SceneryNote));
+    }
+
+    public string SceneryNote => _scenery.Mode == SceneryMode.Transparent
+        ? "Transparente: só o VTuber aparece, sem fundo. Cliques em áreas totalmente vazias do desenho podem passar para a janela de trás."
+        : "Cor sólida: ideal para chroma key (verde ou azul) no OBS.";
+
+    private void ApplyScenery(SceneryOptions options)
+    {
+        _scenery = options;
+        _sceneryColorText = options.Color;
+        SceneryColorError = string.Empty;
+        foreach (var name in new[]
+        {
+            nameof(SceneryColorText), nameof(Scenery), nameof(PlayBackground),
+            nameof(SceneryIsTransparent), nameof(SceneryIsSolid), nameof(SceneryNote)
+        })
+        {
+            OnPropertyChanged(name);
+        }
+    }
+
+    private void StartPlay()
+    {
+        if (!HasCurrentImage || _openPlayWindow is null)
+        {
+            ErrorMessage = "Escolha um VTuber com imagem importada antes de começar.";
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(SceneryColorError))
+        {
+            ErrorMessage = "Corrija a cor do cenário antes de começar.";
+            return;
+        }
+
+        if (ActiveProject is not null)
+        {
+            RunProjectOperation(() =>
+            {
+                SceneryStore.Save(_projectRepository, ActiveProject.Id, _scenery);
+                ActiveProject = _projectRepository.Load(ActiveProject.Id);
+            });
+        }
+
+        ErrorMessage = string.Empty;
+        _openPlayWindow();
+        IsPlaying = true;
+        _ = StartPlayCameraAsync();
+    }
+
+    /// <summary>Enquanto o Play está aberto a câmera não é desligada ao trocar de aba.</summary>
+    public bool IsPlaying { get; private set; }
+
+    public void EndPlay()
+    {
+        IsPlaying = false;
+        if (CurrentPage?.Key != "motion")
+        {
+            MotionLab.Stop();
+        }
+    }
+
+    private async Task StartPlayCameraAsync()
+    {
+        try
+        {
+            if (MotionLab.IsRunning)
+            {
+                return;
+            }
+
+            if (MotionLab.Cameras.Count == 0)
+            {
+                await MotionLab.RefreshCamerasAsync();
+            }
+
+            await MotionLab.StartAsync();
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            ReportError("ligar a câmera do Play", exception);
+        }
+    }
+
+    public ICommand ResetRigCommand { get; private set; } = null!;
+
+    private static double ClampIntensity(double value) =>
+        Math.Clamp(double.IsFinite(value) ? value : 1, 0, RigSettings.MaxIntensity);
+
+    private void UpdateRig(RigSettings settings, string changed)
+    {
+        if (settings == _previewRig)
+        {
+            return;
+        }
+
+        PreviewRig = settings;
+        OnPropertyChanged(changed);
+        IsRigDirty = !_loadingRig;
+    }
+
+    private void ApplyRig(RigSettings settings)
+    {
+        _loadingRig = true;
+        try
+        {
+            UpdateRig(settings, nameof(RigEnabled));
+            foreach (var name in new[] { nameof(RigOverall), nameof(RigFace), nameof(RigEars), nameof(RigHair), nameof(RigHead), nameof(RigEyeLook), nameof(RigBody), nameof(RigCloseMouth) })
+            {
+                OnPropertyChanged(name);
+            }
+
+            RaiseLayerModifierChanged();
+        }
+        finally
+        {
+            _loadingRig = false;
+        }
+
+        IsRigDirty = false;
+    }
+
+    private void SaveRig()
+    {
+        if (ActiveProject is null || !HasLayerScene)
+        {
+            throw new InvalidOperationException("Abra um projeto com camadas reconhecidas para salvar a calibração.");
+        }
+
+        RigSettingsStore.Save(_projectRepository, ActiveProject.Id, _previewRig);
+        ActiveProject = _projectRepository.Load(ActiveProject.Id);
+        IsRigDirty = false;
+        ErrorMessage = string.Empty;
+        OperationMessage = "Calibração do rig salva no projeto.";
+    }
+
+    private void ResetRig()
+    {
+        UpdateRig(RigSettings.Default, nameof(RigEnabled));
+        foreach (var name in new[] { nameof(RigOverall), nameof(RigFace), nameof(RigEars), nameof(RigHair), nameof(RigHead), nameof(RigEyeLook), nameof(RigBody), nameof(RigCloseMouth) })
+        {
+            OnPropertyChanged(name);
+        }
+
+        IsRigDirty = true;
+        RaiseLayerModifierChanged();
+        OperationMessage = "Valores padrão restaurados. Salve para gravar no projeto.";
+        ErrorMessage = string.Empty;
+    }
+
+    /// <summary>Quando há camadas eyewhite, elas definem os olhos e a marcação manual fica desnecessária.</summary>
+    public bool HasRiggedEyes => _sceneEyes.Count > 0;
+
+    public bool CanMarkEyes => HasCurrentImage && !HasRiggedEyes;
+
+    public IReadOnlyList<EyeRegion> PreviewEyes => HasRiggedEyes ? _sceneEyes : EyeRegions;
 
     public IReadOnlyList<PsdLayerInfo> PsdLayers
     {
@@ -192,7 +647,7 @@ public sealed class MainWindowViewModel : ObservableObject
         get => _isMarkingEyes;
         set
         {
-            if (SetProperty(ref _isMarkingEyes, value && HasCurrentImage))
+            if (SetProperty(ref _isMarkingEyes, value && CanMarkEyes))
             {
                 OnPropertyChanged(nameof(MarkEyesButtonLabel));
                 OnPropertyChanged(nameof(PreviewHint));
@@ -221,7 +676,7 @@ public sealed class MainWindowViewModel : ObservableObject
         ? "Escolha um VTuber que tenha uma imagem importada em Criar VTuber."
         : IsMarkingEyes
             ? $"Arraste sobre cada olho para marcá-lo ({EyeRegions.Count}/{EyePreviewService.MaxEyes}). Depois clique em Concluir marcação."
-            : HasEyeRegions
+            : HasEyeRegions || HasRiggedEyes
                 ? FollowMouse
                     ? "Seguindo o mouse. Clique num olho para piscar; dê dois cliques para parar."
                     : "Clique num olho para piscar. Dê dois cliques (ou use o botão) para a cabeça e os olhos seguirem o mouse."
@@ -304,6 +759,98 @@ public sealed class MainWindowViewModel : ObservableObject
     public bool HasDisplayImage => DisplayImage is not null;
 
     public bool HasFurryComponents => FurryComponents.Count > 0;
+
+    public ObservableCollection<DetectedPart> DetectedParts { get; } = [];
+
+    public bool HasDetectedParts => DetectedParts.Count > 0;
+
+    private DetectedPart? _selectedDetectedPart;
+
+    public DetectedPart? SelectedDetectedPart
+    {
+        get => _selectedDetectedPart;
+        set
+        {
+            if (SetProperty(ref _selectedDetectedPart, value))
+            {
+                OnPropertyChanged(nameof(HasSelectedDetectedPart));
+                RaiseLayerModifierChanged();
+            }
+        }
+    }
+
+    public bool HasSelectedDetectedPart => SelectedDetectedPart is not null;
+
+    private LayerModifier SelectedLayerModifier =>
+        SelectedDetectedPart is null ? LayerModifier.Default : _previewRig.ModifierFor(SelectedDetectedPart.LayerName);
+
+    public double LayerScale
+    {
+        get => SelectedLayerModifier.Scale;
+        set => UpdateLayerModifier(SelectedLayerModifier with
+        {
+            Scale = Math.Clamp(double.IsFinite(value) ? value : 1, LayerModifier.MinScale, LayerModifier.MaxScale)
+        });
+    }
+
+    public double LayerOffsetX
+    {
+        get => SelectedLayerModifier.OffsetX;
+        set => UpdateLayerModifier(SelectedLayerModifier with { OffsetX = ClampOffset(value) });
+    }
+
+    public double LayerOffsetY
+    {
+        get => SelectedLayerModifier.OffsetY;
+        set => UpdateLayerModifier(SelectedLayerModifier with { OffsetY = ClampOffset(value) });
+    }
+
+    public double LayerIntensity
+    {
+        get => SelectedLayerModifier.Intensity;
+        set => UpdateLayerModifier(SelectedLayerModifier with { Intensity = ClampIntensity(value) });
+    }
+
+    private static double ClampOffset(double value) =>
+        Math.Clamp(double.IsFinite(value) ? value : 0, -LayerModifier.MaxOffset, LayerModifier.MaxOffset);
+
+    private void UpdateLayerModifier(LayerModifier modifier)
+    {
+        if (SelectedDetectedPart is null)
+        {
+            return;
+        }
+
+        var modifiers = new Dictionary<string, LayerModifier>(
+            _previewRig.LayerModifiers ?? [], StringComparer.Ordinal);
+        if (modifier.IsDefault)
+        {
+            modifiers.Remove(SelectedDetectedPart.LayerName);
+        }
+        else
+        {
+            modifiers[SelectedDetectedPart.LayerName] = modifier;
+        }
+
+        UpdateRig(_previewRig with { LayerModifiers = modifiers.Count == 0 ? null : modifiers }, nameof(RigEnabled));
+        RaiseLayerModifierChanged();
+    }
+
+    private void RaiseLayerModifierChanged()
+    {
+        OnPropertyChanged(nameof(LayerScale));
+        OnPropertyChanged(nameof(LayerOffsetX));
+        OnPropertyChanged(nameof(LayerOffsetY));
+        OnPropertyChanged(nameof(LayerIntensity));
+    }
+
+    private string _characterDetectionSummary = string.Empty;
+
+    public string CharacterDetectionSummary
+    {
+        get => _characterDetectionSummary;
+        private set => SetProperty(ref _characterDetectionSummary, value);
+    }
 
     public bool HasSelectedFurryComponent => SelectedFurryComponent is not null;
 
@@ -445,6 +992,9 @@ public sealed class MainWindowViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(DisplayImage));
                 OnPropertyChanged(nameof(HasCurrentImage));
+                OnPropertyChanged(nameof(CanStartPlay));
+                OnPropertyChanged(nameof(PlayStatus));
+                OnPropertyChanged(nameof(CanMarkEyes));
                 OnPropertyChanged(nameof(PreviewHint));
                 OnPropertyChanged(nameof(HasDisplayImage));
             }
@@ -533,7 +1083,7 @@ public sealed class MainWindowViewModel : ObservableObject
             var selectedId = SelectedProject?.Id;
             RunProjectOperation(() => RefreshProjects(selectedId));
         }
-        else if (key == "create")
+        else if (key is "create" or "play" or "motion")
         {
             try
             {
@@ -567,6 +1117,14 @@ public sealed class MainWindowViewModel : ObservableObject
 
         CurrentPage = CreatePage(key);
         SelectNavigationItem(key);
+        if (key == "motion")
+        {
+            _ = MotionLab.RefreshCamerasAsync();
+        }
+        else if (!IsPlaying)
+        {
+            MotionLab.Stop();
+        }
     }
 
     private void SelectNavigationItem(string key)
@@ -1038,6 +1596,107 @@ public sealed class MainWindowViewModel : ObservableObject
         IsMarkingEyes = false;
         EyeRegions = EyePreviewService.ReadEyes(project, imageReference);
         PsdLayers = PsdLayerStore.Read(project, imageReference);
+        LoadLayerScene(project);
+        ApplyRig(RigSettingsStore.Read(project));
+        ApplyScenery(SceneryStore.Read(project));
+        MotionLab.SetProject(project);
+    }
+
+    private void LoadLayerScene(ProjectDocument project)
+    {
+        _layerBitmaps = null;
+        LayerItems.Clear();
+        foreach (var layer in PsdLayers)
+        {
+            LayerItems.Add(new LayerItemViewModel(layer, OnLayerRenamed));
+        }
+
+        if (PsdLayers.Count > 0)
+        {
+            try
+            {
+                _layerBitmaps = LayerSceneLoader.LoadBitmaps(
+                    PsdLayers,
+                    reference => _projectRepository.GetResourcePath(project.Id, reference),
+                    _currentImageWidth,
+                    _currentImageHeight);
+            }
+            catch (Exception exception) when (IsProjectOperationException(exception))
+            {
+                ReportError("carregar as camadas para o preview", exception);
+            }
+        }
+
+        RebuildScene();
+    }
+
+    private void RebuildScene()
+    {
+        RefreshDetectedParts();
+        if (PsdLayers.Count == 0)
+        {
+            RigSummary = string.Empty;
+            PreviewScene = null;
+            return;
+        }
+
+        var plan = LayerRigger.Plan(PsdLayers);
+        if (_layerBitmaps is null)
+        {
+            RigSummary = "O preview em camadas não está disponível (arquivos de camada ilegíveis ou PSD grande demais); usando a imagem composta.";
+            PreviewScene = null;
+            return;
+        }
+
+        RigSummary = LayerRigger.Summarize(plan);
+        PreviewScene = plan.Any(entry => entry.Role.IsRecognized)
+            ? new LayerScene(
+                _currentImageWidth,
+                _currentImageHeight,
+                PsdLayers.Select((layer, index) =>
+                    new SceneLayer(layer, plan[index], _layerBitmaps.GetValueOrDefault(layer.File))).ToList())
+            : null;
+    }
+
+    private void RefreshDetectedParts()
+    {
+        var detection = FurryDetection.Analyze(PsdLayers);
+        var previousName = SelectedDetectedPart?.LayerName;
+        DetectedParts.Clear();
+        foreach (var part in detection.Parts.Where(part => part.IsFurryPart))
+        {
+            DetectedParts.Add(part);
+        }
+
+        SelectedDetectedPart = DetectedParts.FirstOrDefault(part => part.LayerName == previousName);
+        CharacterDetectionSummary = detection.Summary;
+        OnPropertyChanged(nameof(HasDetectedParts));
+    }
+
+    private void OnLayerRenamed(LayerItemViewModel item, string name)
+    {
+        if (ActiveProject is null || _currentImageReference is null)
+        {
+            return;
+        }
+
+        var error = LayerNaming.Validate(name);
+        if (error is not null)
+        {
+            ErrorMessage = error;
+            OperationMessage = string.Empty;
+            return;
+        }
+
+        RunProjectOperation(() =>
+        {
+            // Atualiza o campo (não a propriedade) para não recriar a lista enquanto o usuário digita.
+            _psdLayers = PsdLayerStore.Rename(_projectRepository, ActiveProject.Id, _currentImageReference, item.File, name);
+            ActiveProject = _projectRepository.Load(ActiveProject.Id);
+            RebuildScene();
+            ErrorMessage = string.Empty;
+            OperationMessage = $"Camada renomeada para “{name.Trim()}” e salva no projeto.";
+        });
     }
 
     private void MarkEye(EyeRegion eye)
@@ -1095,6 +1754,13 @@ public sealed class MainWindowViewModel : ObservableObject
         IsMarkingEyes = false;
         EyeRegions = [];
         PsdLayers = [];
+        _layerBitmaps = null;
+        LayerItems.Clear();
+        RebuildScene();
+        ApplyRig(RigSettings.Default);
+        ApplyScenery(SceneryOptions.Default);
+        MotionLab.SetProject(null);
+        IsPoseTesting = false;
     }
 
     private void ChangeZoom(double multiplier)
@@ -1135,11 +1801,11 @@ public sealed class MainWindowViewModel : ObservableObject
         "home" => new(
             "home",
             "Início",
-            "Bem-vindo ao VTuber Studio AI — um espaço local para organizar e preparar personagens virtuais, com atenção especial a personagens furry.",
-            "FUNDAÇÃO LOCAL",
+            "Bem-vindo ao VFtube AI — um espaço local para organizar e preparar personagens virtuais, com atenção especial a personagens furry.",
+            "EARLY ACCESS",
             "Uma base feita para evoluir com você",
-            "O VTuber Studio AI está começando pelo essencial: uma experiência desktop local, clara e preparada para ferramentas criativas.",
-            ["A navegação do estúdio já está organizada.", "Projetos e recursos avançados serão adicionados em etapas verificáveis.", "Seus arquivos não são enviados a serviços externos." ]),
+            "O VFtube AI está em early access: importe seu personagem, gere o rig, calibre o rosto com a câmera e use o Play.",
+            ["Cada etapa tem sua aba: Criar, Furry Studio, Preview, Laboratório e Play.", "Recursos como Integrações chegam em atualizações futuras.", "Seus arquivos e a imagem da câmera não saem deste computador." ]),
         "studio" => new(
             "studio",
             "Meu estúdio",
@@ -1165,10 +1831,26 @@ public sealed class MainWindowViewModel : ObservableObject
             "Adicione componentes e ajuste somente os parâmetros disponíveis para cada tipo.",
             ["As configurações não deformam nem animam automaticamente uma imagem estática."]),
         "create" => new("create", "Criar VTuber", "Comece um personagem do zero ou importe uma imagem para um projeto existente.", "SEU PERSONAGEM", "Começar do zero ou importar uma imagem", "Criar do zero abre um projeto vazio no Furry Studio. Importar adiciona uma cópia local da imagem ao projeto selecionado.", ["Um personagem criado do zero não transforma nem substitui um avatar existente.", "Importar PNG ou JPEG não cria camadas, rigging ou animação. Em PSD, as camadas existentes são guardadas, mas nada é animado automaticamente."]),
-        "motion" => Roadmap("motion", "Laboratório de movimento", "Explore a evolução futura de comportamentos e rastreamento.", "ROADMAP", "Movimento e rastreamento", "Rastreamento facial, captura corporal e física procedural ainda não estão implementados.", ["Não há câmera ativa nem dados simulados nesta tela.", "Parâmetros futuros só serão chamados de animação quando aplicados por um motor real."]),
+        "motion" => new(
+            "motion",
+            "Laboratório de movimento",
+            "Calibre o rastreamento facial com a câmera e veja o VTuber imitar você.",
+            "RASTREAMENTO FACIAL",
+            "Calibração facial",
+            "A câmera e a detecção rodam neste computador; nenhuma imagem é enviada para fora.",
+            []),
+        "play" => new(
+            "play",
+            "Play",
+            "Escolha o VTuber e o cenário e comece.",
+            "PLAY",
+            "Começar",
+            "Abre uma janela limpa com o seu VTuber, pronta para transmissão.",
+            []),
         "library" => new("library", "Biblioteca de projetos", "Crie, abra e organize projetos armazenados neste computador.", "PROJETOS LOCAIS", "Biblioteca de projetos", "Os projetos são armazenados localmente em JSON versionado.", []),
-        "integrations" => Roadmap("integrations", "Integrações", "Conectividade opcional com ferramentas externas.", "ROADMAP", "Integrações futuras", "Integrações com OBS, plugins e serviços externos estão fora desta fundação.", ["Nenhuma conexão externa é iniciada.", "Serviços pagos e chaves de API não são necessários."]),
-        "settings" => Roadmap("settings", "Configurações", "Preferências do aplicativo e diagnóstico local.", "ROADMAP", "Preferências do aplicativo", "Persistência de preferências será adicionada junto com configurações reais do produto.", ["A interface usa tema escuro nesta versão.", "Logs de erros, quando ocorrerem, ficam na pasta local do usuário."]),
+        "integrations" => Roadmap("integrations", "Integrações", "Conexão com OBS, plugins e serviços externos.", "EM BREVE", "Não disponível no early access", "As integrações ainda não existem nesta versão e chegam em uma atualização futura. Nada nesta área está ativo.", ["Nenhuma conexão externa é iniciada.", "Para transmitir hoje, capture a janela da aba Play (com cenário transparente ou colorido).", "Serviços pagos e chaves de API não são necessários."]),
+        "themes" => new("themes", "Temas", "Aparência do aplicativo.", "APARÊNCIA", "Temas", "Escolha um tema.", []),
+        "settings" => Roadmap("settings", "Configurações", "Informações do aplicativo e diagnóstico local.", "EARLY ACCESS", "Sobre esta versão", $"VFtube AI {AppInfo.Version}. Tudo roda neste computador.", ["O tema é escolhido na aba Temas.", $"Dados e preferências: {AppInfo.DataFolder}", $"Logs de erros, quando ocorrerem: {AppInfo.LogsFolder}"]),
         _ => CreatePage("home")
     };
 
@@ -1183,13 +1865,16 @@ public sealed class MainWindowViewModel : ObservableObject
         new(key, title, description, badge, panelTitle, panelDescription, details);
 }
 
-public sealed class NavigationItemViewModel(string key, string label, string icon) : ObservableObject
+public sealed class NavigationItemViewModel(string key, string label, string icon, string? badge = null) : ObservableObject
 {
     private bool _isSelected;
 
     public string Key { get; } = key;
     public string Label { get; } = label;
     public string Icon { get; } = icon;
+    public string Badge { get; } = badge ?? string.Empty;
+    public System.Windows.Visibility BadgeVisibility =>
+        string.IsNullOrEmpty(Badge) ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
 
     public bool IsSelected
     {

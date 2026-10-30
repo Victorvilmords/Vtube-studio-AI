@@ -1,0 +1,57 @@
+<Window x:Class="VTuberStudioAI.App.PlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:preview="clr-namespace:VTuberStudioAI.App.Preview"
+        Title="VFtube AI — Play"
+        Icon="Assets/logo.ico"
+        Width="720" Height="900" MinWidth="240" MinHeight="300"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResizeWithGrip"
+        Background="{Binding PlayBackground}"
+        ShowInTaskbar="True"
+        PreviewMouseLeftButtonDown="OnPreviewMouseLeftButtonDown"
+        MouseRightButtonDown="OnMouseRightButtonDown"
+        PreviewKeyDown="OnPreviewKeyDown">
+    <Grid>
+        <preview:InteractivePreview x:Name="Stage"
+                                    DoubleClickTogglesFollow="False"
+                                    Source="{Binding CurrentImage}"
+                                    Scene="{Binding PreviewScene}"
+                                    Eyes="{Binding PreviewEyes}"
+                                    IsFollowing="False"
+                                    Tracking="{Binding MotionLab.Pose}"
+                                    Rig="{Binding PreviewRig}"
+                                    AutomationProperties.Name="Seu VTuber" />
+        <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="12" Padding="12,8"
+                CornerRadius="14" Background="#CC10141D" MaxWidth="420" IsHitTestVisible="False">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MotionLab.Pose}" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <StackPanel>
+                <TextBlock Text="{Binding MotionLab.Status}" Foreground="White" TextWrapping="Wrap" TextAlignment="Center" />
+                <TextBlock Text="{Binding MotionLab.ErrorMessage}" Foreground="#FFB4C0" TextWrapping="Wrap" TextAlignment="Center" />
+            </StackPanel>
+        </Border>
+        <StackPanel x:Name="Controls" Orientation="Horizontal" Margin="10"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
+            <Button x:Name="MoveButton" Content="&#xE7C2;" FontFamily="Segoe MDL2 Assets"
+                    Width="34" Height="34" Padding="0" Margin="0,0,6,0"
+                    Background="#CC10141D" BorderBrush="#66FFFFFF" Foreground="White" Cursor="SizeAll"
+                    PreviewMouseLeftButtonDown="OnMovePressed"
+                    ToolTip="Segure e arraste para mover o VTuber (ou use o botão direito do mouse em qualquer lugar)"
+                    AutomationProperties.Name="Mover o VTuber" />
+            <Button x:Name="CloseButton" Content="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                    Width="34" Height="34" Padding="0"
+                    Background="#CC10141D" BorderBrush="#66FFFFFF"
+                    Foreground="White" Click="OnCloseClick"
+                    ToolTip="Fechar o Play (duplo clique na janela esconde estes botões)"
+                    AutomationProperties.Name="Fechar o Play" />
+        </StackPanel>
+    </Grid>
+</Window>

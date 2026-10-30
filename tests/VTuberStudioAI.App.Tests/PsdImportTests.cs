@@ -4,6 +4,7 @@ using System.Windows.Media.Imaging;
 using VTuberStudioAI.App.Images;
 using VTuberStudioAI.App.Preview;
 using VTuberStudioAI.App.Projects;
+using VTuberStudioAI.App.Tracking;
 using VTuberStudioAI.App.ViewModels;
 using Xunit;
 
@@ -11,6 +12,89 @@ namespace VTuberStudioAI.App.Tests;
 
 public sealed class PsdImportTests
 {
+    [Fact]
+    public void PlayTurnsTheCameraOnAndKeepsItWhileThePlayWindowIsOpen()
+    {
+        using var directory = new TemporaryFolder();
+        var repository = new ProjectRepository(directory.Path);
+        var project = repository.Create("PlayCamera");
+        var psdPath = directory.Write("cam.psd", BuildPsd(4, 4, SampleLayers));
+
+        RunOnSta(() =>
+        {
+            var camera = new PlayFakeCamera();
+            var lab = new MotionLabViewModel(
+                repository, camera, _ => new PlayFakeTracker(), action => action(), (_, _) => { });
+            var viewModel = new MainWindowViewModel(
+                repository, _ => false, (_, _) => { }, new ImageImportService(repository), () => psdPath,
+                motionLab: lab, openPlayWindow: () => { });
+            viewModel.ImportTargetProject = project;
+            viewModel.ChooseImageFileCommand.Execute(null);
+            viewModel.ConfirmImageImportCommand.Execute(null);
+
+            viewModel.StartPlayCommand.Execute(null);
+            for (var i = 0; i < 100 && !lab.IsRunning; i++)
+            {
+                Thread.Sleep(50);
+            }
+
+            Assert.True(viewModel.IsPlaying);
+            Assert.True(lab.IsRunning);
+            Assert.Equal("cam-1", camera.StartedWith);
+
+            viewModel.NavigateCommand.Execute("library");
+            Assert.False(camera.Stopped);
+
+            viewModel.EndPlay();
+            for (var i = 0; i < 100 && !camera.Stopped; i++)
+            {
+                Thread.Sleep(50);
+            }
+
+            Assert.False(viewModel.IsPlaying);
+            Assert.True(camera.Stopped);
+        });
+    }
+
+    private sealed class PlayFakeTracker : IFaceTracker
+    {
+        public FaceMeasurements? Track(BgraFrame frame) => null;
+
+        public void Reset()
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class PlayFakeCamera : ICameraSource
+    {
+        public event Action<BgraFrame>? FrameArrived;
+
+        public string? StartedWith { get; private set; }
+
+        public bool Stopped { get; private set; }
+
+        public Task<IReadOnlyList<CameraDevice>> ListAsync() =>
+            Task.FromResult<IReadOnlyList<CameraDevice>>([new CameraDevice("cam-1", "Câmera de teste")]);
+
+        public Task StartAsync(string deviceId)
+        {
+            StartedWith = deviceId;
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync()
+        {
+            Stopped = true;
+            return Task.CompletedTask;
+        }
+
+        public void Dispose() => FrameArrived = null;
+    }
+
     private static readonly SyntheticLayer[] SampleLayers =
     [
         new("Fundo", 0, 0, 4, 4, (200, 100, 50), Visible: true, Rle: false),
@@ -75,6 +159,143 @@ public sealed class PsdImportTests
             Assert.True(viewModel.HasPsdLayers);
             Assert.Contains("Rascunho (oculta)", viewModel.PsdLayerLabels);
             Assert.True(viewModel.HasEyeRegions);
+        });
+    }
+
+    [Fact]
+    public void PlayStartsOnlyWithAnImageAndRemembersTheScenery()
+    {
+        using var directory = new TemporaryFolder();
+        var repository = new ProjectRepository(directory.Path);
+        var project = repository.Create("Play");
+        var psdPath = directory.Write("play.psd", BuildPsd(4, 4, SampleLayers));
+        var opened = 0;
+
+        RunOnSta(() =>
+        {
+            var viewModel = new MainWindowViewModel(
+                repository, _ => false, (_, _) => { }, new ImageImportService(repository), () => psdPath,
+                openPlayWindow: () => opened++);
+            viewModel.ImportTargetProject = project;
+            Assert.False(viewModel.CanStartPlay);
+            viewModel.StartPlayCommand.Execute(null);
+            Assert.Equal(0, opened);
+            Assert.NotEmpty(viewModel.ErrorMessage);
+
+            viewModel.ChooseImageFileCommand.Execute(null);
+            viewModel.ConfirmImageImportCommand.Execute(null);
+            Assert.True(viewModel.CanStartPlay);
+
+            viewModel.SceneryColorText = "verde";
+            Assert.NotEmpty(viewModel.SceneryColorError);
+            Assert.Equal("#00B140", viewModel.Scenery.Color);
+            viewModel.StartPlayCommand.Execute(null);
+            Assert.Equal(0, opened);
+
+            viewModel.SceneryColorText = "#0047bb";
+            Assert.Equal(string.Empty, viewModel.SceneryColorError);
+            viewModel.SetSceneryModeCommand.Execute("transparent");
+            Assert.True(viewModel.SceneryIsTransparent);
+            viewModel.SetSceneryModeCommand.Execute("solid");
+            viewModel.StartPlayCommand.Execute(null);
+            Assert.Equal(1, opened);
+        });
+
+        var saved = SceneryStore.Read(new ProjectRepository(directory.Path).Load(project.Id));
+        Assert.Equal(new SceneryOptions(SceneryMode.Solid, "#0047BB"), saved);
+    }
+
+    [Fact]
+    public void SceneryRejectsInvalidColorsAndFallsBackToDefault()
+    {
+        using var directory = new TemporaryFolder();
+        var repository = new ProjectRepository(directory.Path);
+        var project = repository.Create("Cenario");
+
+        Assert.False(SceneryOptions.TryParseColor("#12345", out _));
+        Assert.False(SceneryOptions.TryParseColor("red", out _));
+        Assert.False(SceneryOptions.TryParseColor("#GG0000", out _));
+        Assert.True(SceneryOptions.TryParseColor("#ffaa00", out var color) && color.R == 255 && color.G == 170);
+        Assert.Throws<ArgumentException>(() =>
+            SceneryStore.Save(repository, project.Id, new SceneryOptions(SceneryMode.Solid, "azul")));
+        Assert.Equal(SceneryOptions.Default, SceneryStore.Read(repository.Load(project.Id)));
+
+        SceneryStore.Save(repository, project.Id, new SceneryOptions(SceneryMode.Transparent, "#000000"));
+        Assert.Equal(SceneryMode.Transparent, SceneryStore.Read(repository.Load(project.Id)).Mode);
+    }
+
+    [Fact]
+    public void NamedLayersBuildARigAndRenamingUpdatesItLiveAndPersists()
+    {
+        using var directory = new TemporaryFolder();
+        var repository = new ProjectRepository(directory.Path);
+        var project = repository.Create("Rig");
+        SyntheticLayer[] layers =
+        [
+            new("body", 0, 0, 8, 8, (90, 90, 90), Visible: true, Rle: false),
+            new("eyewhite.L", 1, 1, 4, 2, (255, 255, 255), Visible: true, Rle: false),
+            new("pupil.L", 2, 1, 2, 2, (0, 0, 0), Visible: true, Rle: false),
+            new("eyehighlight.L", 2, 1, 1, 1, (255, 255, 255), Visible: true, Rle: false),
+            new("F.ear.L", 5, 0, 2, 2, (120, 60, 20), Visible: true, Rle: false)
+        ];
+        var psdPath = directory.Write("rig.psd", BuildPsd(8, 8, layers));
+
+        RunOnSta(() =>
+        {
+            var viewModel = new MainWindowViewModel(
+                repository, _ => false, (_, _) => { }, new ImageImportService(repository), () => psdPath);
+            viewModel.ImportTargetProject = project;
+            viewModel.ChooseImageFileCommand.Execute(null);
+            viewModel.ConfirmImageImportCommand.Execute(null);
+
+            Assert.NotNull(viewModel.PreviewScene);
+            Assert.True(viewModel.HasRiggedEyes);
+            Assert.False(viewModel.CanMarkEyes);
+            Assert.Single(viewModel.PreviewEyes);
+            Assert.Equal(1, viewModel.PreviewScene!.Layers[2].Rig.MaskIndex);
+            Assert.Contains("furry", viewModel.RigSummary);
+            Assert.Equal(5, viewModel.LayerItems.Count);
+
+            viewModel.LayerItems[2].Name = "Pupila solta";
+
+            Assert.Null(viewModel.PreviewScene!.Layers[2].Rig.MaskIndex);
+            Assert.Contains("Sem papel", viewModel.LayerItems[2].RoleDescription);
+            Assert.Equal(string.Empty, viewModel.ErrorMessage);
+
+            viewModel.LayerItems[2].Name = " ";
+
+            Assert.Contains("vazio", viewModel.ErrorMessage);
+            Assert.Null(viewModel.PreviewScene!.Layers[2].Rig.MaskIndex);
+        });
+
+        var reopened = new ProjectRepository(directory.Path).Load(project.Id);
+        var reference = Assert.Single(reopened.ResourceReferences);
+        Assert.Equal("Pupila solta", PsdLayerStore.Read(reopened, reference)[2].Name);
+    }
+
+    [Fact]
+    public void PsdWithoutRecognizedNamesKeepsTheCompositePreview()
+    {
+        using var directory = new TemporaryFolder();
+        var repository = new ProjectRepository(directory.Path);
+        var project = repository.Create("Sem nomes");
+        var psdPath = directory.Write("arte.psd", BuildPsd(4, 4,
+        [
+            new("Layer 1", 0, 0, 4, 4, (200, 100, 50), Visible: true, Rle: false),
+            new("Layer 2", 1, 1, 2, 1, (10, 20, 30), Visible: true, Rle: false)
+        ]));
+
+        RunOnSta(() =>
+        {
+            var viewModel = new MainWindowViewModel(
+                repository, _ => false, (_, _) => { }, new ImageImportService(repository), () => psdPath);
+            viewModel.ImportTargetProject = project;
+            viewModel.ChooseImageFileCommand.Execute(null);
+            viewModel.ConfirmImageImportCommand.Execute(null);
+
+            Assert.Null(viewModel.PreviewScene);
+            Assert.True(viewModel.CanMarkEyes);
+            Assert.Contains("composta", viewModel.RigSummary);
         });
     }
 

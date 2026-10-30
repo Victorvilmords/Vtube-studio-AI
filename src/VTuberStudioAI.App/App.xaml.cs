@@ -2,16 +2,21 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using VTuberStudioAI.App.Themes;
 
 namespace VTuberStudioAI.App;
 
 public partial class App : Application
 {
+    public ThemeService Themes { get; private set; } = null!;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+        Themes = new ThemeService(_ => { }, new AppSettingsStore());
+        Themes.Initialize();
         base.OnStartup(e);
     }
 
@@ -20,7 +25,7 @@ public partial class App : Application
         AppLogger.Log(e.Exception, "Exceção não tratada na interface.");
         MessageBox.Show(
             "Ocorreu um erro inesperado. Os detalhes foram registrados no log local.",
-            "VTuber Studio AI",
+            "VFtube AI",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
         e.Handled = true;

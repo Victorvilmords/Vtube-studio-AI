@@ -199,7 +199,7 @@ public sealed class ImageImportService(IProjectRepository projectRepository) : I
                     Directory.CreateDirectory(Path.GetDirectoryName(layerPath)!);
                     writtenLayerFiles.Add(layerPath);
                     File.WriteAllBytes(layerPath, layer.Png);
-                    layers.Add(new PsdLayerInfo(layer.Name, layer.Left, layer.Top, layer.Width, layer.Height, layer.Visible, reference));
+                    layers.Add(new PsdLayerInfo(layer.Name, layer.Left, layer.Top, layer.Width, layer.Height, layer.Visible, reference, layer.Opacity));
                 }
 
                 configurations[PsdLayerStore.ConfigurationKey] = JsonSerializer.SerializeToElement(
