@@ -190,5 +190,8 @@ tests/
     FurryStudioTests.cs
 README.md
 ```
-# Vtube-studio-AI
+
+## Licença e contribuição
+
+Código sob a [licença MIT](./LICENSE). Veja [CONTRIBUTING.md](./CONTRIBUTING.md) para contribuir e [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) para as licenças de terceiros.
 
